@@ -15,6 +15,6 @@ mcs -target:library -out:$OUT/BZMultiplayer.dll -optimize+ -debug- -nostdlib -no
   -r:$LIBS/UnityEngine.TextRenderingModule.dll -r:$LIBS/UnityEngine.AudioModule.dll -r:$LIBS/UnityEngine.UI.dll -r:$LIBS/UnityEngine.UIModule.dll \
   -r:$LIBS/Assembly-CSharp.dll -r:$LIBS/Assembly-CSharp-firstpass.dll -r:$LIBS/Unity.Addressables.dll \
   -r:$LIBS/com.rlabrecque.steamworks.net.dll \
-  -r:$LIBS/BepInEx.dll -r:$LIBS/0Harmony.dll \
+  -r:$LIBS/BepInEx.dll -r:$LIBS/0Harmony.dll -r:$LIBS/Unity.TextMeshPro.dll -r:$LIBS/UnityEngine.ParticleSystemModule.dll \
   -recurse:'src/*.cs'
 ls -la $OUT/BZMultiplayer.dll

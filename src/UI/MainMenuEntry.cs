@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -8,9 +9,11 @@ using UnityEngine.UI;
 namespace BZMultiplayer.UI
 {
     /// <summary>
-    /// A "Multiplayer" entry in the main menu, directly below Play. It is a copy of one of the game's own primary
-    /// options (the same component Play / Options / Credits / Quit use), so it looks and behaves like the others and
-    /// works in VR. Clicking it opens the options screen on the Multiplayer tab.
+    /// A "Multiplayer" entry in the main menu, directly below Play. BZ's main menu is a
+    /// <see cref="uGUI_NavigableControlGrid"/> (primaryOptions) whose entries are plain rows carrying a Button -
+    /// there is no marker component to look for - so the real Options row is located through the persistent onClick
+    /// method the menu wired in the editor, and that row is cloned. Because the grid collects its Selectables at
+    /// runtime, the clone is automatically navigable with a controller and in VR.
     /// </summary>
     public static class MainMenuEntry
     {
@@ -30,106 +33,116 @@ namespace BZMultiplayer.UI
 
         private static IEnumerator BuildWhenReady(uGUI_MainMenu menu)
         {
-            yield return null;   // let the menu finish building itself
+            // The menu fills primaryOptions over its first frames; wait until buttons actually exist.
+            float deadline = Time.unscaledTime + 10f;
+            while (Time.unscaledTime < deadline)
+            {
+                yield return null;
+                var root = RootOf(menu);
+                if (root != null && root.GetComponentsInChildren<Button>(true).Length >= 2) break;
+            }
             yield return null;
             try { Build(menu); }
             catch (Exception e) { Plugin.Log.LogWarning("MainMenuEntry: " + e); }
         }
 
+        private static Transform RootOf(uGUI_MainMenu menu)
+        {
+            if (menu == null) return null;
+            if (menu.primaryOptions != null) return menu.primaryOptions.transform;
+            return menu.transform;
+        }
+
         private static void Build(uGUI_MainMenu menu)
         {
-            if (menu == null) return;
+            var root = RootOf(menu);
+            if (root == null) { Plugin.Log.LogWarning("MainMenuEntry: main menu has no primary options."); return; }
 
-            var options = menu.GetComponentsInChildren<MainMenuPrimaryOption>(true);
-            if (options == null || options.Length == 0) { Plugin.Log.LogWarning("MainMenuEntry: no main-menu options found."); return; }
-            foreach (var o in options) if (o != null && o.name == EntryName) return;   // already added
-
-            MainMenuPrimaryOption play = null, template = null;
-            foreach (var o in options)
+            // The menu buttons are direct children of one column (MenuButtons, a VerticalLayoutGroup). Find them by the
+            // persistent onClick method the menu wired in the editor, never by position or by walking up the tree: a
+            // wrong guess here clones a singleton panel and breaks the menus that depend on it.
+            Button optionsButton = null, playButton = null;
+            foreach (var b in root.GetComponentsInChildren<Button>(true))
             {
-                if (o == null || !o.gameObject.activeInHierarchy) continue;
-                string method = PersistentMethod(o);
-                if (method != null && method.IndexOf("Play", StringComparison.OrdinalIgnoreCase) >= 0) play = play ?? o;
-                if (method != null && method.IndexOf("Options", StringComparison.OrdinalIgnoreCase) >= 0) template = template ?? o;
+                string m = PersistentMethod(b);
+                if (m == "OnButtonOptions") optionsButton = optionsButton ?? b;
+                else if (m == "OnButtonLoad" || m == "OnButtonNew") playButton = playButton ?? b;
             }
-            // Fall back on order: the first entry is Play, and any other entry serves as the template.
-            if (play == null) play = FirstActive(options);
-            if (template == null) foreach (var o in options) { if (o != null && o != play && o.gameObject.activeInHierarchy) { template = o; break; } }
-            if (template == null) template = play;
-            if (play == null || template == null) { Plugin.Log.LogWarning("MainMenuEntry: could not identify the Play entry."); return; }
+            if (optionsButton == null)
+            {
+                Plugin.Log.LogWarning("MainMenuEntry: the Options button was not found; leaving the menu alone.");
+                Dump(root);
+                return;
+            }
 
-            var go = UnityEngine.Object.Instantiate(template.gameObject, template.transform.parent, false);
+            // The row is the button itself; its parent is the column. Both are taken from the real button, so we can
+            // never end up cloning something bigger than one menu entry.
+            Transform template = optionsButton.transform;
+            Transform container = template.parent;
+            if (container == null) { Plugin.Log.LogWarning("MainMenuEntry: the Options button has no parent column."); return; }
+
+            foreach (Transform child in container) if (child.name == EntryName) return;   // already added
+
+            Transform play = playButton != null && playButton.transform.parent == container ? playButton.transform : null;
+
+            var go = UnityEngine.Object.Instantiate(template.gameObject, container, false);
             go.name = EntryName;
             go.SetActive(true);
 
-            int wanted = play.transform.GetSiblingIndex() + 1;
+            int wanted = play != null ? play.GetSiblingIndex() + 1 : Mathf.Max(0, container.childCount - 1);
             go.transform.SetSiblingIndex(wanted);
 
-            // Some menus place their entries by hand instead of with a layout group; keep the column evenly spaced.
-            if (template.transform.parent.GetComponent<LayoutGroup>() == null) Reflow(play.transform.parent, wanted);
+            // Some menus place their rows by hand instead of with a layout group; keep the column evenly spaced.
+            if (container.GetComponent<LayoutGroup>() == null) Reflow(container);
 
-            var opt = go.GetComponent<MainMenuPrimaryOption>();
-            SetLabel(opt != null && opt.optionText != null ? opt.optionText : go, "Multiplayer");
+            SetLabel(go, "Multiplayer");
 
+            // Our own click, and none of the editor-wired ones. EventTrigger drives the hover animation, so it stays.
             foreach (var b in go.GetComponentsInChildren<Button>(true))
             {
                 b.onClick = new Button.ButtonClickedEvent();
                 b.onClick.AddListener(OpenMultiplayer);
                 b.interactable = true;
             }
-            Plugin.Log.LogInfo("Main menu: Multiplayer entry added below " + play.name + " (copied from " + template.name + ").");
+
+            Plugin.Log.LogInfo("Main menu: Multiplayer entry added at index " + wanted + " under '" + container.name
+                             + "' (below '" + (play != null ? play.name : "(Play not found)")
+                             + "', copied from '" + template.name + "').");
         }
 
-        private static MainMenuPrimaryOption FirstActive(MainMenuPrimaryOption[] options)
+        /// <summary>The name of the method the menu itself wired to this button in the editor ("OnButtonOptions"...).</summary>
+        private static string PersistentMethod(Button b)
         {
-            MainMenuPrimaryOption first = null;
-            int bestIndex = int.MaxValue;
-            foreach (var o in options)
+            int n = b.onClick.GetPersistentEventCount();
+            for (int i = 0; i < n; i++)
             {
-                if (o == null || !o.gameObject.activeInHierarchy) continue;
-                int i = o.transform.GetSiblingIndex();
-                if (i < bestIndex) { bestIndex = i; first = o; }
-            }
-            return first;
-        }
-
-        /// <summary>The name of the method the menu itself wired to this entry in the editor ("OnButtonOptions"...).</summary>
-        private static string PersistentMethod(MainMenuPrimaryOption opt)
-        {
-            foreach (var b in opt.GetComponentsInChildren<Button>(true))
-            {
-                int n = b.onClick.GetPersistentEventCount();
-                for (int i = 0; i < n; i++)
-                {
-                    string m = b.onClick.GetPersistentMethodName(i);
-                    if (!string.IsNullOrEmpty(m)) return m;
-                }
+                string m = b.onClick.GetPersistentMethodName(i);
+                if (!string.IsNullOrEmpty(m)) return m;
             }
             return null;
         }
 
-        /// <summary>Re-space a hand-placed column so the inserted entry does not sit on top of its neighbour.</summary>
-        private static void Reflow(Transform parent, int insertedAt)
+        /// <summary>Re-space a hand-placed column so the inserted row does not sit on top of its neighbour.</summary>
+        private static void Reflow(Transform container)
         {
-            var rows = new System.Collections.Generic.List<RectTransform>();
-            foreach (Transform child in parent)
+            var rows = new List<RectTransform>();
+            foreach (Transform child in container)
             {
                 var rt = child as RectTransform;
-                if (rt != null && child.gameObject.activeSelf && child.GetComponent<MainMenuPrimaryOption>() != null) rows.Add(rt);
+                if (rt != null && child.gameObject.activeSelf && child.GetComponentInChildren<Button>(true) != null) rows.Add(rt);
             }
             if (rows.Count < 3) return;
 
-            // Spacing from the two entries that were already there, measured before our insert shifted anything.
+            // Spacing from two rows that were already there, ignoring the one we just inserted.
             RectTransform a = null, b = null;
-            foreach (var rt in rows) { if (rt.name == EntryName) continue; if (a == null) a = rt; else if (b == null) { b = rt; break; } }
+            foreach (var rt in rows) { if (rt.name == EntryName) continue; if (a == null) a = rt; else { b = rt; break; } }
             if (a == null || b == null) return;
             float step = b.anchoredPosition.y - a.anchoredPosition.y;
             if (Mathf.Abs(step) < 0.01f) return;
 
             float y = a.anchoredPosition.y;
-            for (int i = 0; i < rows.Count; i++)
+            foreach (var rt in rows)
             {
-                var rt = rows[i];
                 var p = rt.anchoredPosition;
                 rt.anchoredPosition = new Vector2(p.x, y);
                 y += step;
@@ -155,6 +168,29 @@ namespace BZMultiplayer.UI
             }
         }
 
+        /// <summary>Diagnostic: the live menu hierarchy, so a log tells us the real structure instead of a guess.</summary>
+        private static void Dump(Transform root)
+        {
+            try
+            {
+                var sb = new System.Text.StringBuilder("MainMenuEntry: hierarchy under '" + root.name + "':\n");
+                DumpInto(sb, root, 0);
+                Plugin.Log.LogInfo(sb.ToString());
+            }
+            catch { }
+        }
+
+        private static void DumpInto(System.Text.StringBuilder sb, Transform t, int depth)
+        {
+            if (depth > 6) return;
+            sb.Append(' ', depth * 2).Append(t.name).Append(t.gameObject.activeSelf ? "" : " (inactive)");
+            foreach (var c in t.GetComponents<Component>()) if (c != null) sb.Append(" [").Append(c.GetType().Name).Append(']');
+            var btn = t.GetComponent<Button>();
+            if (btn != null && btn.onClick.GetPersistentEventCount() > 0) sb.Append(" -> ").Append(btn.onClick.GetPersistentMethodName(0));
+            sb.Append('\n');
+            foreach (Transform child in t) DumpInto(sb, child, depth + 1);
+        }
+
         private static void OpenMultiplayer()
         {
             var menu = uGUI_MainMenu.main;
@@ -165,19 +201,35 @@ namespace BZMultiplayer.UI
 
         private static IEnumerator SelectTab()
         {
-            float deadline = Time.unscaledTime + 3f;
+            float deadline = Time.unscaledTime + 5f;
             while (Time.unscaledTime < deadline)
             {
-                var panel = UnityEngine.Object.FindObjectOfType<uGUI_OptionsPanel>();
-                if (panel != null && OptionsTab.TabIndex >= 0)
-                {
-                    yield return null;   // let the panel finish opening before we switch tabs
-                    try { Traverse.Create(panel).Method("SetVisibleTab", new object[] { OptionsTab.TabIndex }).GetValue(); }
-                    catch (Exception e) { Plugin.Log.LogWarning("MainMenuEntry: could not open the Multiplayer tab: " + e.Message); }
-                    yield break;
-                }
                 yield return null;
+                var panel = UnityEngine.Object.FindObjectOfType<uGUI_OptionsPanel>();
+                if (panel == null || OptionsTab.TabIndex < 0) continue;
+
+                // Switch tabs by turning the tab's own toggle on, NOT by calling SetVisibleTab: the toggle drives both
+                // the visible pane and the highlight, so calling the method alone showed our pane with the first tab
+                // still highlighted.
+                bool opened;
+                try { opened = OptionsTab.SelectTabExclusive(panel, OptionsTab.TabIndex); }
+                catch (Exception e) { Plugin.Log.LogWarning("MainMenuEntry: could not open the Multiplayer tab: " + e.Message); yield break; }
+                if (!opened) continue;
+
+                // The panel highlights its own current tab from a coroutine that finishes AFTER this runs the first
+                // time a panel is opened, which re-lit General next to ours. Hold the selection for a moment so the
+                // late highlight cannot leave two tabs lit.
+                float hold = Time.unscaledTime + 1f;
+                while (Time.unscaledTime < hold)
+                {
+                    yield return null;
+                    if (panel == null) yield break;
+                    try { OptionsTab.SelectTabExclusive(panel, OptionsTab.TabIndex); }
+                    catch { yield break; }
+                }
+                yield break;
             }
+            Plugin.Log.LogWarning("MainMenuEntry: the options panel never offered the Multiplayer tab.");
         }
     }
 }

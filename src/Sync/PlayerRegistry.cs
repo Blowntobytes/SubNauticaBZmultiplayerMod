@@ -33,10 +33,10 @@ namespace BZMultiplayer.Sync
         }
 
         /// <summary>A player told us what they are holding; the avatar picks it up next frame.</summary>
-        public void SetHeldItem(ulong id, int techType)
+        public void SetHeldItem(ulong id, int techType, int flags)
         {
             var p = Get(id);
-            if (p != null) p.SetHeldItem((TechType)techType);
+            if (p != null) p.SetHeldItem((TechType)techType, flags);
         }
 
         public void Remove(ulong id)

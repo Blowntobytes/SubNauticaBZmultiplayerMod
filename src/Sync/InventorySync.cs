@@ -179,7 +179,6 @@ namespace BZMultiplayer.Sync
                 pw.Write(e.TechType);
                 pw.Write(e.Quantity);
             }
-            // Use SteamNet's send method — we need to add a public accessor
             net.SendInventoryPacket(to, pw);
         }
 

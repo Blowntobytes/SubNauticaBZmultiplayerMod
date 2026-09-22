@@ -187,6 +187,13 @@ namespace BZMultiplayer.Net
         private IEnumerator JoinWhenReadyRoutine(CSteamID lobbyId)
         {
             if (!LocalPlayerSync.InWorld) yield return MenuFlow.WaitForMenuReady();
+            // An invite launched from Steam lands here the instant the menu appears, while the game's time scale
+            // may still be 0 from the menu load and its cached scale unsettled. Joining right then loaded the world
+            // with that 0 cached, and it came back the moment the last load freezer let go: a frozen arrival.
+            // Pressing the join key seconds later never saw this. Give the menu the same few seconds.
+            float deadline = Time.unscaledTime + 15f;
+            while (Time.unscaledTime < deadline && (Time.timeScale < 0.99f || UWE.FreezeTime.HasFreezers())) yield return null;
+            yield return new WaitForSecondsRealtime(1.5f);
             Join(lobbyId);
         }
 
@@ -294,10 +301,35 @@ namespace BZMultiplayer.Net
             hostId = SteamMatchmaking.GetLobbyOwner(lobby);
             string ver = SteamMatchmaking.GetLobbyData(lobby, LobbyKeyVersion);
             if (ver != Plugin.PluginVersion)
-                Plugin.Log.LogWarning("Host runs BZMultiplayer " + ver + ", you run " + Plugin.PluginVersion + ". Expect problems.");
+            {
+                // Different builds desync in ways that look like gameplay bugs and cost hours to chase. Refuse the join.
+                string hostVer = string.IsNullOrEmpty(ver) ? "an older version" : "version " + ver;
+                Plugin.Log.LogWarning("Version mismatch: host runs BZMultiplayer " + hostVer
+                                    + ", you run " + Plugin.PluginVersion + ". Leaving the session.");
+                status = "version mismatch";
+                if (Plugin.Instance != null) Plugin.Instance.StartCoroutine(RefuseMismatch(hostVer));
+                else Leave(true);
+                return;
+            }
             status = "connected";
             Plugin.Log.LogInfo("Joined lobby " + lobby.m_SteamID + ", host " + hostId.m_SteamID);
             SendHello(hostId, SendReliable);
+        }
+
+        /// <summary>
+        /// Show the mismatch on screen for three seconds, then leave and go back to the main menu. ErrorMessage entries
+        /// fade on their own, so the line is re-posted each second to keep it readable for the whole three.
+        /// </summary>
+        private System.Collections.IEnumerator RefuseMismatch(string hostVer)
+        {
+            string line = "BZMultiplayer version mismatch\nHost runs " + hostVer + ", you run version " + Plugin.PluginVersion
+                        + ".\nBoth players need the same build. Returning to the main menu.";
+            for (int i = 0; i < 3; i++)
+            {
+                try { ErrorMessage.AddMessage(line); } catch { }
+                yield return new UnityEngine.WaitForSecondsRealtime(1f);
+            }
+            Leave(true);
         }
 
         private void OnLobbyChatUpdate(LobbyChatUpdate_t ev)
@@ -531,10 +563,21 @@ namespace BZMultiplayer.Net
             writer.Begin(PacketType.BaseState); writer.Write(baseId); writer.Write(isNew); writer.Write(pos); writer.Write(rot); writer.Write(data, 0, data.Length); SendWorldEvent(writer);
         }
         public void SendBaseRemoved(string baseId) { writer.Begin(PacketType.BaseRemoved); writer.Write(baseId); SendWorldEvent(writer); }
-        public void SendHeldItem(int techType) { writer.Begin(PacketType.HeldItem); writer.Write(selfId.m_SteamID); writer.Write(techType); SendWorldEvent(writer); }
+        public void SendHeldItem(int techType, int flags) { writer.Begin(PacketType.HeldItem); writer.Write(selfId.m_SteamID); writer.Write(techType); writer.Write(flags); SendWorldEvent(writer); }
         public void SendStory(byte kind, string key, int techType) { writer.Begin(PacketType.Story); writer.Write(kind); writer.Write(key); writer.Write(techType); SendWorldEvent(writer); }
 
         /// <summary>Host: apply the configured player limit to the current lobby.</summary>
+        /// <summary>How many players this lobby accepts, as Steam itself reports it (0 when not in a session).</summary>
+        public int LobbyLimit
+        {
+            get
+            {
+                if (!IsInSession) return 0;
+                int limit = SteamMatchmaking.GetLobbyMemberLimit(lobby);
+                return limit > 0 ? limit : Mathf.Clamp(Plugin.MaxPlayers.Value, 2, 8);
+            }
+        }
+
         public void ApplyMaxPlayers()
         {
             if (!IsInSession || !IsHost) return;
@@ -567,10 +610,49 @@ namespace BZMultiplayer.Net
 
         // ---------------------------------------------------------------- receiving
 
+        // How long a player may go without sending anything before they are treated as gone. Pose packets arrive
+        // many times a second and the held item repeats every five, so twelve seconds of nothing is a dead process
+        // or a dead link, not a quiet player. Steam's own lobby timeout for an abrupt exit can take a minute.
+        private const float SilenceTimeout = 12f;
+        private float nextSilenceCheck;
+
+        private void DropSilentPlayers()
+        {
+            if (Time.unscaledTime < nextSilenceCheck) return;
+            nextSilenceCheck = Time.unscaledTime + 1f;
+            List<ulong> gone = null;
+            foreach (var p in players.All)
+            {
+                int age = p.AgeMs;
+                if (age < 0 || age < SilenceTimeout * 1000f) continue;
+                if (gone == null) gone = new List<ulong>();
+                gone.Add(p.SteamId);
+            }
+            if (gone == null) return;
+            foreach (var who in gone)
+            {
+                if (who == hostId.m_SteamID && !IsHost)
+                {
+                    Plugin.Log.LogInfo("Host has been silent for " + SilenceTimeout + "s; leaving the session.");
+                    Leave();
+                    return;
+                }
+                SteamNetworkingIdentity ident;
+                if (identities.TryGetValue(who, out ident))
+                {
+                    SteamNetworkingMessages.CloseSessionWithUser(ref ident);
+                    identities.Remove(who);
+                }
+                players.Remove(who);
+                Plugin.Log.LogInfo("Player timed out (silent for " + SilenceTimeout + "s): " + who);
+            }
+        }
+
         public void Pump()
         {
             if (!initialized || !IsInSession) return;
             FlushReliable();
+            DropSilentPlayers();
             int n;
             while ((n = SteamNetworkingMessages.ReceiveMessagesOnChannel(Channel, recvPtrs, recvPtrs.Length)) > 0)
             {
@@ -727,8 +809,8 @@ namespace BZMultiplayer.Net
                 case PacketType.HeldItem:
                 {
                     RelayIfHost(from, data, size);
-                    ulong owner = r.ReadULong(); int tt = r.ReadInt();
-                    players.SetHeldItem(owner, tt);
+                    ulong owner = r.ReadULong(); int tt = r.ReadInt(); int flags = r.ReadInt();
+                    players.SetHeldItem(owner, tt, flags);
                     break;
                 }
                 case PacketType.Story:
@@ -762,6 +844,7 @@ namespace BZMultiplayer.Net
                 {
                     RelayIfHost(from, data, size);
                     string cid = r.ReadString(); string iid = r.ReadString(); int tt = r.ReadInt();
+                    Plugin.Log.LogInfo("Packet ContainerAdd from " + from + ": " + (TechType)tt + " [" + iid + "] -> [" + cid + "]");
                     WorldSync.OnContainerAdd(cid, iid, tt);
                     break;
                 }
@@ -769,6 +852,7 @@ namespace BZMultiplayer.Net
                 {
                     RelayIfHost(from, data, size);
                     string cid = r.ReadString(); string iid = r.ReadString();
+                    Plugin.Log.LogInfo("Packet ContainerRemove from " + from + ": [" + iid + "] <- [" + cid + "]");
                     WorldSync.OnContainerRemove(cid, iid);
                     break;
                 }

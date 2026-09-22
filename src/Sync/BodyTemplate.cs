@@ -34,6 +34,8 @@ namespace BZMultiplayer.Sync
             {
                 capturing = true;
                 Capture(__instance.gameObject);
+                // Same moment, same reason: the rig is still untouched, so the tool socket can be measured honestly.
+                HeldItemSync.Calibrate(__instance.gameObject);
             }
             catch (Exception e) { Plugin.Log.LogError("Body template capture failed: " + e); }
             finally { capturing = false; }

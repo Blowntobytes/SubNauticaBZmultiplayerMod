@@ -88,6 +88,21 @@ namespace BZMultiplayer.Sync
                     if (smr != null) smr.updateWhenOffscreen = true;
                 }
 
+                // The game lights the player's body through a SkyApplier that sits on the PLAYER object, not on the
+                // body we cloned - so the clone arrived with no way to take a base's interior sky and turned into a
+                // silhouette indoors after dark. Give it its own, over every renderer it has. Dynamic, so it also
+                // re-evaluates as the avatar moves, and Auto so a habitat's own sky is what gets picked.
+                var sky = body.GetComponent<SkyApplier>();
+                bool added = sky == null;
+                if (added) sky = body.AddComponent<SkyApplier>();
+                sky.renderers = body.GetComponentsInChildren<Renderer>(true);
+                sky.dynamic = true;
+                sky.anchorSky = Skies.Auto;
+                sky.customSkyPrefab = null;
+                sky.emissiveFromPower = false;
+                sky.enabled = true;
+                Plugin.Log.LogInfo("Avatar " + name + ": SkyApplier " + (added ? "added" : "reused") + " over " + sky.renderers.Length + " renderers.");
+
                 animator = body.GetComponent<Animator>();
                 if (animator != null)
                 {

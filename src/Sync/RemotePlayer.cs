@@ -32,12 +32,14 @@ namespace BZMultiplayer.Sync
         // What this player is holding, and the display-only copy of it in the avatar's hand.
         private TechType heldType = TechType.None, shownHeld = TechType.None;
         private GameObject heldModel;
+        private int heldFlags;
         private bool heldPending;
 
         // Habitat lighting: the avatar needs the sky of the base it is inside, like the local player's body.
         private GameObject currentEnv;
         private bool envKnown;
         private float nextEnvCheck;
+        private float nextEnvResend;
 
         public int AgeMs { get { return lastReceive < 0 ? -1 : Mathf.RoundToInt((Time.unscaledTime - lastReceive) * 1000f); } }
 
@@ -48,10 +50,25 @@ namespace BZMultiplayer.Sync
             IsVR = isVr;
         }
 
-        public void SetHeldItem(TechType tt)
+        /// <summary>The display-only item currently in this avatar's hand, for the alignment tuner. Null when empty.</summary>
+        public Transform HeldModel { get { return heldModel != null ? heldModel.transform : null; } }
+
+        /// <summary>What this avatar is showing right now (may lag HeldType by a load).</summary>
+        public TechType ShownHeld { get { return shownHeld; } }
+
+        public void SetHeldItem(TechType tt, int flags)
         {
+            heldFlags = flags;
+            ApplyHeldFlags();
             if (heldType == tt) return;
             heldType = tt;
+        }
+
+        private void ApplyHeldFlags()
+        {
+            if (heldModel == null) return;
+            var light = heldModel.GetComponent<HeldItemSync.HeldLight>();
+            if (light != null) light.Set((heldFlags & HeldItemSync.LitFlag) != 0);
         }
 
         /// <summary>Keep the model in the avatar's hand in step with what the player is holding.</summary>
@@ -80,6 +97,7 @@ namespace BZMultiplayer.Sync
             if (want != heldType || diver == null) { UnityEngine.Object.Destroy(go); yield break; }
             if (heldModel != null) UnityEngine.Object.Destroy(heldModel);
             heldModel = go;
+            ApplyHeldFlags();
             Plugin.Log.LogInfo(Name + " is holding " + want);
         }
 
@@ -110,7 +128,11 @@ namespace BZMultiplayer.Sync
             if (avatarRoot == null || Time.unscaledTime < nextEnvCheck) return;
             nextEnvCheck = Time.unscaledTime + 0.5f;
             var env = EnvironmentTracker.FindAt(pos);
-            if (envKnown && env == currentEnv) return;
+            // Re-send even when the habitat has not changed: building or deconstructing a piece rebuilds the base,
+            // and an avatar that only heard about its sky once was left unlit in there after dark.
+            bool changed = !envKnown || env != currentEnv;
+            if (!changed && Time.unscaledTime < nextEnvResend) return;
+            nextEnvResend = Time.unscaledTime + 3f;
             currentEnv = env;
             envKnown = true;
             try { SkyEnvironmentChanged.Broadcast(avatarRoot, env); }

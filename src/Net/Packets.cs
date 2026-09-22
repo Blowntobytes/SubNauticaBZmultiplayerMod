@@ -30,7 +30,7 @@ namespace BZMultiplayer.Net
         ContainerRemove = 36, // containerId, itemId
         BaseState = 38,       // baseId, isNew, pos, rot, blob (Base component serialized) - whole hull shape of one base
         BaseRemoved = 39,     // baseId
-        HeldItem = 41,        // owner steam id, techType (what that player has in hand)
+        HeldItem = 41,        // owner steam id, techType, flags (bit0 = its light is on)
         Story = 40,           // kind, key, techType (story goal / blueprint / scan / encyclopedia / log)
         ResourceBroken = 37,  // outcrop id (breakable resource smashed; its drops follow as ItemDrop)
         InventoryData = 42,   // worldKey, item count, items (techType + quantity each)

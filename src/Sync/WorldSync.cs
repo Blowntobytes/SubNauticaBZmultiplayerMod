@@ -433,7 +433,9 @@ namespace BZMultiplayer.Sync
             for (var t = c.transform; t != null; t = t.parent)
             {
                 var u = t.GetComponent<UniqueIdentifier>();
-                if (u != null) return u;
+                // Skip ChildObjectIdentifier: StorageContainer.storageRoot is one, and its id is generated per
+                // machine, so addressing a container by it named something the other side had never heard of.
+                if (u != null && !(u is ChildObjectIdentifier)) return u;
             }
             return null;
         }
@@ -458,6 +460,13 @@ namespace BZMultiplayer.Sync
             if (owner == null) return null;
             var all = ContainersOf(owner);
             int idx = all.IndexOf(sc);
+            if (idx < 0)
+            {
+                // Should not happen: the container is not among its own owner's containers. Addressing it as index 0
+                // would quietly fill the wrong chest, so refuse to address it at all.
+                Plugin.Log.LogWarning("Container " + sc.name + " is not listed under its owner " + owner.Id + "; not syncing it.");
+                return null;
+            }
             return idx > 0 ? owner.Id + "#" + idx : owner.Id;
         }
 
@@ -468,11 +477,15 @@ namespace BZMultiplayer.Sync
             int hash = key.IndexOf('#');
             if (hash >= 0) { id = key.Substring(0, hash); int.TryParse(key.Substring(hash + 1), out idx); }
             var go = Find(id);
-            if (go == null) return null;
+            if (go == null) { Plugin.Log.LogWarning("Container lookup [" + key + "]: no object with id " + id + " in this world."); return null; }
             var uid = go.GetComponent<UniqueIdentifier>();
             var all = ContainersOf(uid);
             if (idx < all.Count) return all[idx];
-            return go.GetComponentInChildren<StorageContainer>(true);
+            // Falling back to "any container under this object" used to pick a container belonging to a nested entity,
+            // which silently put items in the wrong place. Report the mismatch instead.
+            Plugin.Log.LogWarning("Container lookup [" + key + "]: '" + go.name + "' has " + all.Count
+                                + " container(s), index " + idx + " requested. The two worlds disagree about this object.");
+            return null;
         }
 
         public static void OnContainerAdd(string containerId, string itemId, int techType)

@@ -208,6 +208,10 @@ namespace BZMultiplayer.Net
             if (json == "\u0000closed") { Plugin.Log.LogInfo("Discord: pipe closed."); Close(); return; }
             string evt = Field(json, "evt");
             string cmd = Field(json, "cmd");
+            // Acknowledgements of SET_ACTIVITY are normally uninteresting, but when the Join button does not appear
+            // in Discord the reply is the only evidence of what Discord actually accepted.
+            if (cmd == "SET_ACTIVITY" && Plugin.VerboseLog.Value) Plugin.Log.LogInfo("Discord reply: " + json);
+
             // Only DISPATCH frames are events; everything else is an acknowledgement of one of our commands.
             if (cmd != "DISPATCH" && evt != "ERROR") return;
             if (evt == "READY")
@@ -282,6 +286,7 @@ namespace BZMultiplayer.Net
             string args = sb.ToString();
             if (args == lastActivity) return;
             lastActivity = args;
+            if (Plugin.VerboseLog.Value) Plugin.Log.LogInfo("Discord presence: " + args);
             Send(OpFrame, Cmd("SET_ACTIVITY", args));
         }
     }

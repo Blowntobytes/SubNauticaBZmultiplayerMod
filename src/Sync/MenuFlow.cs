@@ -8,6 +8,20 @@ namespace BZMultiplayer.Sync
     {
         public static bool Quitting { get; private set; }
 
+        private static bool cleanedLeftovers;
+
+        /// <summary>
+        /// Remove a leftover received world once the menu is up. This deliberately does NOT run during plugin load:
+        /// touching the save folder that early pulls the game's save and settings layer awake before other mods have
+        /// finished patching it, and those mods store their settings there.
+        /// </summary>
+        private static void CleanLeftoversOnce()
+        {
+            if (cleanedLeftovers || uGUI_MainMenu.main == null) return;
+            cleanedLeftovers = true;
+            SaveSync.DeleteReceivedSlot("left over from an earlier session");
+        }
+
         private static float menuFirstSeen = -1f;
         private static bool sawWorld;
 
@@ -16,6 +30,7 @@ namespace BZMultiplayer.Sync
         {
             if (LocalPlayerSync.InWorld) { sawWorld = true; menuFirstSeen = -1f; return; }
             if (uGUI_MainMenu.main != null && (menuFirstSeen < 0f || sawWorld)) { menuFirstSeen = Time.unscaledTime; sawWorld = false; }
+            CleanLeftoversOnce();
         }
 
         /// <summary>Waits until the main menu exists and has been up for a few seconds (save slots scanned, VR rig up).</summary>
@@ -46,6 +61,8 @@ namespace BZMultiplayer.Sync
                 float deadline = Time.unscaledTime + 60f;
                 while (uGUI_MainMenu.main == null && Time.unscaledTime < deadline) yield return null;
                 yield return new WaitForSecondsRealtime(1f);
+                // The received world is a real slot on disk; drop it now that we are out of it.
+                SaveSync.DeleteReceivedSlot("left the session");
             }
             finally { Quitting = false; }
         }

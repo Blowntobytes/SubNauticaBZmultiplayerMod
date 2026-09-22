@@ -37,6 +37,9 @@ namespace BZMultiplayer.Sync
 
         public string StatusText { get; private set; }
 
+        /// <summary>True while a world is being received or loaded, so leaving the world then is part of the transfer.</summary>
+        public bool Busy { get { return receiving || loadJob != null; } }
+
         public SaveSync(SteamNet net) { this.net = net; StatusText = ""; }
 
         // ------------------------------------------------------------------ paths
@@ -303,6 +306,24 @@ namespace BZMultiplayer.Sync
             StatusText = "loading host world";
             yield return uGUI_MainMenu.main.LoadGameAsync(slot, info.session, info.changeSet, info.gameModePresetId, info.gameOptions, info.storyVersion);
             StatusText = "";
+        }
+
+        /// <summary>
+        /// Remove the copy of someone else's world once we are done with it. It is a real save slot on disk, so while
+        /// it lingers it shows up in the Load menu as if it were your own game - and can even be hosted back out,
+        /// which is how a joined world ended up being served to the next joiner.
+        /// </summary>
+        public static void DeleteReceivedSlot(string why)
+        {
+            if (LocalPlayerSync.InWorld) return;   // never delete the slot we are playing in
+            try
+            {
+                string dir = Path.Combine(GetSavedGamesPath(), Plugin.MultiplayerSlot.Value);
+                if (!Directory.Exists(dir)) return;
+                Directory.Delete(dir, true);
+                Plugin.Log.LogInfo("Removed the received world slot " + Plugin.MultiplayerSlot.Value + " (" + why + ").");
+            }
+            catch (Exception e) { Plugin.Log.LogWarning("Could not remove " + Plugin.MultiplayerSlot.Value + ": " + e.Message); }
         }
 
         public void Reset()
