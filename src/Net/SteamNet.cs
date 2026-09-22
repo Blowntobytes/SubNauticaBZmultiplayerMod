@@ -204,6 +204,9 @@ namespace BZMultiplayer.Net
         public void Leave(bool returnToMenu)
         {
             if (!initialized || !IsInSession) return;
+            // Save inventory before leaving
+            if (IsHost) InventorySync.HostSaveAllOnLeave();
+            else InventorySync.ClientSendInventoryToHost();
             bool clientInWorld = !IsHost && LocalPlayerSync.InWorld;
             foreach (var kv in identities)
             {
@@ -213,6 +216,7 @@ namespace BZMultiplayer.Net
             identities.Clear();
             reliableQueue.Clear();
             Saves.Reset();
+            InventorySync.Reset();
             SteamMatchmaking.LeaveLobby(lobby);
             lobby = CSteamID.Nil;
             hostId = CSteamID.Nil;
@@ -539,6 +543,15 @@ namespace BZMultiplayer.Net
         public void SendResourceBroken(string id) { writer.Begin(PacketType.ResourceBroken); writer.Write(id); SendWorldEvent(writer); }
         public void SendProgress(string id, float amount) { writer.Begin(PacketType.Progress); writer.Write(id); writer.Write(amount); SendWorldEvent(writer); }
 
+        /// <summary>Send a pre-built inventory packet to one player (reliable).</summary>
+        public void SendInventoryPacket(ulong to, PacketWriter pw) { SendTo(to, pw, SendReliable); }
+
+        /// <summary>Host: ask all clients to send their current inventory.</summary>
+        public void BroadcastInventoryRequest(PacketWriter pw) { SendToAllExcept(selfId.m_SteamID, pw, SendReliable); }
+
+        /// <summary>The Steam ID of the lobby host.</summary>
+        public ulong HostSteamId { get { return hostId.m_SteamID; } }
+
         /// <summary>Host re-broadcasts a client's world event to the other clients, byte for byte.</summary>
         private void RelayIfHost(ulong from, byte[] data, int size)
         {
@@ -759,6 +772,28 @@ namespace BZMultiplayer.Net
                     RelayIfHost(from, data, size);
                     string id = r.ReadString(); float amount = r.ReadFloat();
                     WorldSync.OnProgress(id, amount);
+                    break;
+                }
+                case PacketType.InventoryData:
+                {
+                    if (IsHost)
+                        InventorySync.OnInventoryDataFromClient(from, r);
+                    else if (from == hostId.m_SteamID)
+                        InventorySync.OnInventoryDataFromHost(r);
+                    break;
+                }
+                case PacketType.InventoryRequest:
+                {
+                    if (IsHost)
+                    {
+                        // A client is ready for their saved inventory
+                        InventorySync.HostCheckAndSendInventory(from);
+                    }
+                    else if (from == hostId.m_SteamID)
+                    {
+                        // Host is asking us to send our inventory (e.g. before disconnect)
+                        InventorySync.ClientSendInventoryToHost();
+                    }
                     break;
                 }
             }
