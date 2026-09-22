@@ -73,11 +73,11 @@ namespace BZMultiplayer
             MultiplayerSlot = Config.Bind("World", "MultiplayerSlot", "slot9990", "Save slot the host's world is written into on this machine (slot0000-slot9999). It is overwritten on every join.");
             ShowOverlay = Config.Bind("UI", "ShowOverlay", true, "Draw the status box on the desktop window (not visible in the headset).");
             VerboseLog = Config.Bind("Debug", "Verbose", false, "Log every packet type received (spammy).");
-            KeepWorldRunning = Config.Bind("World", "KeepWorldRunning", true, "When hosting, prevent the pause menu from freezing time so the world stays live for other players.");
-            ShowMainMenuEntry = Config.Bind("UI", "ShowMainMenuEntry", true, "Add a Multiplayer button to the main menu.");
-            ShowOptionsTab = Config.Bind("UI", "ShowOptionsTab", true, "Add a Multiplayer tab to the Options screen.");
             DiscordEnabled = Config.Bind("Discord", "Enabled", true, "Show the session in Discord (rich presence) with a Join button for friends. Needs the Discord desktop app running.");
             DiscordAppId = Config.Bind("Discord", "ApplicationId", "1550629787389792326", "Discord application id used for rich presence. Everyone in a session must use the same id. Create one at discord.com/developers/applications (New Application, name it e.g. 'Subnautica: Below Zero') and paste its Application ID here.");
+            KeepWorldRunning = Config.Bind("Gameplay", "KeepWorldRunning", true, "Prevent the host from freezing time when a menu is opened, so the world stays live for other players.");
+            ShowMainMenuEntry = Config.Bind("UI", "ShowMainMenuEntry", true, "Show the Multiplayer entry on the main menu.");
+            ShowOptionsTab = Config.Bind("UI", "ShowOptionsTab", true, "Show the Multiplayer options tab.");
 
             // The game's "Cleaner" scene (quit to main menu) destroys every root object that is not marked preserved,
             // including BepInEx's plugin object. Keep us (and every other plugin on this object) alive across it.
@@ -87,7 +87,6 @@ namespace BZMultiplayer
             Players = new PlayerRegistry();
             Net = new SteamNet(Players);
             Local = new LocalPlayerSync(Net);
-            InventorySync.Init(Net);
             if (DiscordEnabled.Value && string.IsNullOrEmpty(DiscordAppId.Value.Trim())) Log.LogInfo("Discord presence disabled: no ApplicationId set in the config.");
             if (DiscordEnabled.Value && !string.IsNullOrEmpty(DiscordAppId.Value.Trim()))
             {
@@ -96,14 +95,16 @@ namespace BZMultiplayer
             }
 
             var harmony = new Harmony(PluginGuid);
-            try { BodyTemplate.Install(harmony); } catch (Exception e) { Log.LogError("BodyTemplate install failed: " + e); }
-            try { WorldSync.Install(harmony, Net); } catch (Exception e) { Log.LogError("WorldSync install failed: " + e); }
-            try { BaseSync.Install(harmony, Net); } catch (Exception e) { Log.LogError("BaseSync install failed: " + e); }
-            try { StorySync.Install(harmony, Net); } catch (Exception e) { Log.LogError("StorySync install failed: " + e); }
-            try { TimeSync.Install(harmony); } catch (Exception e) { Log.LogError("TimeSync install failed: " + e); }
-            try { if (ShowOptionsTab.Value) BZMultiplayer.UI.OptionsTab.Install(harmony); } catch (Exception e) { Log.LogError("OptionsTab install failed: " + e); }
-            try { if (ShowMainMenuEntry.Value) BZMultiplayer.UI.MainMenuEntry.Install(harmony); } catch (Exception e) { Log.LogError("MainMenuEntry install failed: " + e); }
-            try { HeldItemSync.Install(Net); } catch (Exception e) { Log.LogError("HeldItemSync install failed: " + e); }
+            try { BodyTemplate.Install(harmony); } catch (Exception e) { Log.LogError("Install failed (BodyTemplate): " + e); }
+            try { WorldSync.Install(harmony, Net); } catch (Exception e) { Log.LogError("Install failed (WorldSync): " + e); }
+            try { BaseSync.Install(harmony, Net); } catch (Exception e) { Log.LogError("Install failed (BaseSync): " + e); }
+            try { StorySync.Install(harmony, Net); } catch (Exception e) { Log.LogError("Install failed (StorySync): " + e); }
+            try { TimeSync.Install(harmony); } catch (Exception e) { Log.LogError("Install failed (TimeSync): " + e); }
+            try { BZMultiplayer.UI.OptionsTab.Install(harmony); } catch (Exception e) { Log.LogError("Install failed (OptionsTab): " + e); }
+            try { BZMultiplayer.UI.MainMenuEntry.Install(harmony); } catch (Exception e) { Log.LogError("Install failed (MainMenuEntry): " + e); }
+            try { HeldItemSync.Install(Net); } catch (Exception e) { Log.LogError("Install failed (HeldItemSync): " + e); }
+
+            InventorySync.Init(Net);
 
             Log.LogInfo(PluginName + " " + PluginVersion + " loaded. Host: " + HostKey.Value + "  Leave: " + LeaveKey.Value + "  Join: " + JoinFriendKey.Value + "  RequestWorld: " + RequestWorldKey.Value);
         }
