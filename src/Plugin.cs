@@ -18,7 +18,7 @@ namespace BZMultiplayer
     {
         public const string PluginGuid = "com.blowntobytes.bzmultiplayer";
         public const string PluginName = "BZMultiplayer";
-        public const string PluginVersion = "0.10.0";
+        public const string PluginVersion = "0.11.0";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
@@ -118,6 +118,7 @@ namespace BZMultiplayer
             Guard("if (ShowOptionsTab.Value) BZMultiplayer.UI.OptionsTab.Instal", () => { if (ShowOptionsTab.Value) BZMultiplayer.UI.OptionsTab.Install(harmony); });
             Guard("if (ShowMainMenuEntry.Value) BZMultiplayer.UI.MainMenuEntry.", () => { if (ShowMainMenuEntry.Value) BZMultiplayer.UI.MainMenuEntry.Install(harmony); });
             Guard("HeldItemSync.Install(Net)", () => { HeldItemSync.Install(Net); });
+            Guard("CutsceneSync.Install(harmony, Net)", () => { CutsceneSync.Install(harmony, Net); });
 
             InventorySync.Init(Net);
 
@@ -213,6 +214,8 @@ namespace BZMultiplayer
                 GUI.Label(new Rect(16, y, 350, 20), "  " + p.Name + (p.IsVR ? " [VR]" : "") + "   " + p.AgeMs + " ms");
                 y += 18;
             }
+
+            UI.PlayerHUD.OnGUI();
         }
 
         /// <summary>Quitting to the desktop: close the lobby immediately rather than waiting for the process to die.</summary>

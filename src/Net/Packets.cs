@@ -35,6 +35,7 @@ namespace BZMultiplayer.Net
         ResourceBroken = 37,  // outcrop id (breakable resource smashed; its drops follow as ItemDrop)
         InventoryData = 42,   // worldKey, item count, items (techType + quantity each)
         InventoryRequest = 43, // client -> host: ready for saved inventory
+        CutsceneStart = 44,   // any -> host -> others: objectId (PlayerCinematicController on that object)
     }
 
     [Flags]

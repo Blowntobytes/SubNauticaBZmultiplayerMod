@@ -136,7 +136,7 @@ namespace BZMultiplayer.Sync
                         else remoteGoals.Remove(key);
                         break;
                     case KindKnownTech:
-                        if (KnownTech.Add((TechType)techType, false, false)) Plugin.Log.LogInfo("Blueprint applied: " + (TechType)techType);
+                        if (KnownTech.Add((TechType)techType, true, false)) Plugin.Log.LogInfo("Blueprint applied: " + (TechType)techType);
                         break;
                     case KindScan:
                     {
@@ -147,7 +147,7 @@ namespace BZMultiplayer.Sync
                             bool mute = !Plugin.RemoteDatabankAudio.Value;
                             if (mute) muteDepth++;
                             try {
-                            AccessTools.Method(typeof(PDAScanner), "Unlock", new[] { typeof(PDAScanner.EntryData), typeof(bool), typeof(bool), typeof(bool) }).Invoke(null, new object[] { entry, true, true, false });
+                            AccessTools.Method(typeof(PDAScanner), "Unlock", new[] { typeof(PDAScanner.EntryData), typeof(bool), typeof(bool), typeof(bool) }).Invoke(null, new object[] { entry, true, true, true });
                             Plugin.Log.LogInfo("Scan unlock applied: " + (TechType)techType);
                             }
                             finally { if (mute && muteDepth > 0) muteDepth--; }
@@ -158,12 +158,12 @@ namespace BZMultiplayer.Sync
                     {
                         bool mute = !Plugin.RemoteDatabankAudio.Value;
                         if (mute) muteDepth++;
-                        try { PDAEncyclopedia.Add(key, false, false); }
+                        try { PDAEncyclopedia.Add(key, true, true); }
                         finally { if (mute && muteDepth > 0) muteDepth--; }
                         break;
                     }
                     case KindLog:
-                        PDALog.Add(key, false);
+                        PDALog.Add(key, true);
                         break;
                 }
             }

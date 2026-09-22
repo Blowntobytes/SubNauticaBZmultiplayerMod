@@ -42,6 +42,8 @@ namespace BZMultiplayer.Sync
         private float nextEnvResend;
 
         public int AgeMs { get { return lastReceive < 0 ? -1 : Mathf.RoundToInt((Time.unscaledTime - lastReceive) * 1000f); } }
+        public Vector3 Position { get { return target.BodyPos; } }
+        public bool HasPose { get { return hasPose; } }
 
         public RemotePlayer(ulong steamId, string name, bool isVr)
         {

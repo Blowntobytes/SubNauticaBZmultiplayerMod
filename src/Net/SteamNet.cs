@@ -565,6 +565,7 @@ namespace BZMultiplayer.Net
         public void SendBaseRemoved(string baseId) { writer.Begin(PacketType.BaseRemoved); writer.Write(baseId); SendWorldEvent(writer); }
         public void SendHeldItem(int techType, int flags) { writer.Begin(PacketType.HeldItem); writer.Write(selfId.m_SteamID); writer.Write(techType); writer.Write(flags); SendWorldEvent(writer); }
         public void SendStory(byte kind, string key, int techType) { writer.Begin(PacketType.Story); writer.Write(kind); writer.Write(key); writer.Write(techType); SendWorldEvent(writer); }
+        public void SendCutscene(string objectId) { writer.Begin(PacketType.CutsceneStart); writer.Write(objectId); SendWorldEvent(writer); }
 
         /// <summary>Host: apply the configured player limit to the current lobby.</summary>
         /// <summary>How many players this lobby accepts, as Steam itself reports it (0 when not in a session).</summary>
@@ -873,6 +874,12 @@ namespace BZMultiplayer.Net
                 {
                     if (IsHost) InventorySync.HostCheckAndSendInventory(from);
                     else InventorySync.ClientSendInventoryToHost();
+                    break;
+                }
+                case PacketType.CutsceneStart:
+                {
+                    string objectId = r.ReadString();
+                    CutsceneSync.OnCutscene(objectId);
                     break;
                 }
             }
