@@ -13,7 +13,7 @@ namespace BZMultiplayer.Sync
     /// </summary>
     public static class StorySync
     {
-        public const byte KindGoal = 1, KindKnownTech = 2, KindScan = 3, KindEncyclopedia = 4, KindLog = 5;
+        public const byte KindGoal = 1, KindKnownTech = 2, KindScan = 3, KindEncyclopedia = 4, KindLog = 5, KindAnalyze = 6;
 
         private static SteamNet net;
 
@@ -31,6 +31,7 @@ namespace BZMultiplayer.Sync
             Post(harmony, AccessTools.Method(typeof(PDAScanner), "Unlock", new[] { typeof(PDAScanner.EntryData), typeof(bool), typeof(bool), typeof(bool) }), "ScanPostfix");
             Post(harmony, AccessTools.Method(typeof(PDAEncyclopedia), "Add", new[] { typeof(string), typeof(bool), typeof(bool) }), "EncyPostfix");
             Post(harmony, AccessTools.Method(typeof(PDALog), "Add", new[] { typeof(string), typeof(bool) }), "LogPostfix");
+            Post(harmony, AccessTools.Method(typeof(KnownTech), "Analyze", new[] { typeof(TechType), typeof(bool), typeof(bool) }), "AnalyzePostfix");
 
             // Story audio: a goal someone else triggered executes here too. Databank/creature-discovery entries are
             // silent for everyone but the finder; the main story lines play for all, queued behind whatever is talking.
@@ -120,6 +121,13 @@ namespace BZMultiplayer.Sync
             net.SendStory(KindLog, key, 0);
         }
 
+        private static void AnalyzePostfix(TechType techType)
+        {
+            if (!WorldSync.CanSend) return;
+            net.SendStory(KindAnalyze, "", (int)techType);
+            Plugin.Log.LogInfo("Analyze sent: " + techType);
+        }
+
         // ------------------------------------------------------------------ remote events
 
         public static void OnStory(byte kind, string key, int techType)
@@ -165,6 +173,14 @@ namespace BZMultiplayer.Sync
                     case KindLog:
                         PDALog.Add(key, true);
                         break;
+                    case KindAnalyze:
+                    {
+                        bool mute = !Plugin.RemoteDatabankAudio.Value;
+                        if (mute) muteDepth++;
+                        try { KnownTech.Analyze((TechType)techType, true, true); Plugin.Log.LogInfo("Analyze applied: " + (TechType)techType); }
+                        finally { if (mute && muteDepth > 0) muteDepth--; }
+                        break;
+                    }
                 }
             }
             catch (Exception e) { Plugin.Log.LogWarning("Story apply failed (" + kind + " " + key + "): " + e.Message); }

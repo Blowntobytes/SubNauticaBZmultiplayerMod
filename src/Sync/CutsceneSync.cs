@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using BZMultiplayer.Net;
 using UnityEngine;
@@ -6,20 +8,55 @@ using UnityEngine;
 namespace BZMultiplayer.Sync
 {
     /// <summary>
-    /// Cutscene / cinematic sync: when one player triggers a cinematic (alien arch, artifact interaction,
-    /// frozen leviathan, etc.), all other players see the same cinematic play on the world object.
-    /// The cinematic plays for the remote player too — their camera is taken over by the cinematic controller.
+    /// Cutscene / cinematic sync: when one player triggers a world-level cinematic (alien arch, artifact
+    /// interaction, frozen leviathan, etc.), all other players see the same cinematic play on the world object.
+    /// Personal cinematics (bulkheads, base doors, drop pod, vehicle entry/exit) are NOT synced.
+    /// Remote players are never teleported — only the world-side animation plays.
     /// </summary>
     public static class CutsceneSync
     {
         private static SteamNet net;
         private static bool applying;
 
+        /// <summary>
+        /// Animation names that should NOT be synced — these are personal (entering/exiting things).
+        /// Matched by prefix so e.g. "bulkhead" catches "bulkhead_open", "bulkhead_close" etc.
+        /// </summary>
+        private static readonly string[] BlockedPrefixes = new[]
+        {
+            "drop_pod",         // drop pod hatch
+            "bulkhead",         // base bulkhead doors
+            "door",             // generic doors
+            "hatch",            // hatches
+            "enter",            // entering vehicles/bases
+            "exit",             // exiting vehicles/bases
+            "climb",            // ladders
+            "use_chair",        // sitting
+            "bench",            // bench sitting
+            "moonpool",         // moonpool docking
+            "cyclops",          // cyclops interactions
+            "seatruck",         // seatruck docking/entering
+            "dock",             // docking
+            "snowfox",          // snowfox mount/dismount
+            "prawn",            // prawn suit
+            "exosuit",          // exosuit
+            "jukebox",          // jukebox use
+            "shower",           // shower use
+            "bed",              // bed use
+            "toilet",           // toilet use
+            "vending",          // vending machine
+            "coffee",           // coffee machine
+            "fabricat",         // fabricator
+            "terminal",         // terminal use
+            "constructor",      // mobile vehicle bay
+            "maproom",          // map room / scanner room
+            "charging",         // charging station
+        };
+
         public static void Install(Harmony harmony, SteamNet steamNet)
         {
             net = steamNet;
 
-            // Hook PlayerCinematicController.StartCinematicMode to broadcast when a cinematic starts
             var start = AccessTools.Method(typeof(PlayerCinematicController), "StartCinematicMode",
                 new[] { typeof(Player) });
             if (start != null)
@@ -30,6 +67,30 @@ namespace BZMultiplayer.Sync
             Plugin.Log.LogInfo("CutsceneSync installed.");
         }
 
+        // ------------------------------------------------------------------ helpers
+
+        private static string GetAnimName(PlayerCinematicController controller)
+        {
+            try
+            {
+                var field = AccessTools.Field(typeof(PlayerCinematicController), "playerViewAnimationName");
+                if (field != null) return field.GetValue(controller) as string;
+            }
+            catch { }
+            return null;
+        }
+
+        private static bool IsBlocked(string animName)
+        {
+            if (string.IsNullOrEmpty(animName)) return true; // unknown animation — safer to block
+            string lower = animName.ToLowerInvariant();
+            for (int i = 0; i < BlockedPrefixes.Length; i++)
+            {
+                if (lower.StartsWith(BlockedPrefixes[i])) return true;
+            }
+            return false;
+        }
+
         // ------------------------------------------------------------------ local event
 
         private static void CinematicStartPostfix(PlayerCinematicController __instance)
@@ -37,18 +98,28 @@ namespace BZMultiplayer.Sync
             if (applying || !WorldSync.CanSend) return;
             if (__instance == null) return;
 
+            string animName = GetAnimName(__instance);
+            if (IsBlocked(animName))
+            {
+                if (Plugin.VerboseLog.Value) Plugin.Log.LogInfo("Cutscene blocked (personal): " + (animName ?? "null"));
+                return;
+            }
+
             string id = WorldSync.IdOf(__instance);
             if (string.IsNullOrEmpty(id)) return;
 
-            net.SendCutscene(id);
-            Plugin.Log.LogInfo("Cutscene sent: " + id);
+            net.SendCutscene(id, animName ?? "");
+            Plugin.Log.LogInfo("Cutscene sent: " + id + " anim=" + animName);
         }
 
         // ------------------------------------------------------------------ remote event
 
-        public static void OnCutscene(string objectId)
+        public static void OnCutscene(string objectId, string animName)
         {
             if (!LocalPlayerSync.InWorld || string.IsNullOrEmpty(objectId)) return;
+
+            // Double-check the blocklist on the receiving side too
+            if (IsBlocked(animName)) return;
 
             applying = true;
             WorldSync.applyingRemote = true;
@@ -61,24 +132,35 @@ namespace BZMultiplayer.Sync
                     return;
                 }
 
-                var controller = go.GetComponent<PlayerCinematicController>();
-                if (controller == null)
+                // Play only the world-side animation — do NOT call StartCinematicMode on the local player.
+                // This means the remote player sees the object animate but is not teleported or camera-locked.
+                bool played = false;
+
+                // Try PlayableDirector (timeline-based cutscenes like alien arches, frozen leviathan)
+                // Use reflection to avoid compile-time dependency on UnityEngine.DirectorModule
+                var directorType = Type.GetType("UnityEngine.Playables.PlayableDirector, UnityEngine.DirectorModule");
+                if (directorType != null)
                 {
-                    // Some objects have the controller on a child
-                    controller = go.GetComponentInChildren<PlayerCinematicController>();
+                    var director = go.GetComponent(directorType);
+                    if (director == null) director = go.GetComponentInChildren(directorType);
+                    if (director != null)
+                    {
+                        var playMethod = directorType.GetMethod("Play", Type.EmptyTypes);
+                        if (playMethod != null) { playMethod.Invoke(director, null); played = true; }
+                    }
                 }
 
-                if (controller == null)
+                // Try Animator trigger
+                var animator = go.GetComponent<Animator>();
+                if (animator == null) animator = go.GetComponentInChildren<Animator>();
+                if (animator != null && !string.IsNullOrEmpty(animName))
                 {
-                    Plugin.Log.LogWarning("CutsceneSync: no PlayerCinematicController on " + objectId);
-                    return;
+                    try { animator.SetTrigger(animName); played = true; }
+                    catch { }
                 }
 
-                if (Player.main != null)
-                {
-                    controller.StartCinematicMode(Player.main);
-                    Plugin.Log.LogInfo("Cutscene applied: " + objectId);
-                }
+                if (played) Plugin.Log.LogInfo("Cutscene world anim played: " + objectId + " anim=" + animName);
+                else Plugin.Log.LogInfo("Cutscene object found but no director/animator: " + objectId);
             }
             catch (Exception e)
             {

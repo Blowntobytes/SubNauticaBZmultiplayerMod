@@ -18,7 +18,7 @@ namespace BZMultiplayer
     {
         public const string PluginGuid = "com.blowntobytes.bzmultiplayer";
         public const string PluginName = "BZMultiplayer";
-        public const string PluginVersion = "0.11.0";
+        public const string PluginVersion = "0.12.0";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
