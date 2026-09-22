@@ -2,6 +2,12 @@
 
 Only versions from 0.9.25 on are listed in detail; earlier builds were tracked in chat sessions.
 
+## 0.10.0
+- Per-player per-world inventory persistence: host saves each player's inventory to disk keyed by SteamID + world identity (slot + game mode). Rejoining the same world restores items; different worlds stay independent.
+- Story sync fix: blueprint/creature discoveries show notifications to all players but suppress audio unless story-critical (GoalType.Story). RemoteDatabankAudio config toggle still available.
+- TimeSync: prevent host from freezing time during multiplayer.
+- New packet types: InventoryData (42), InventoryRequest (43).
+
 ## 0.9.26
 - Fixed: the Multiplayer tab/menu entry was missing. The time-sync patch used the wrong parameter name for
   `FreezeTime.Set` (`timeScale` instead of `value`), so Harmony threw and every patch after it was skipped.

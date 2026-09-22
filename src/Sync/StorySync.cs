@@ -57,8 +57,11 @@ namespace BZMultiplayer.Sync
             if (string.IsNullOrEmpty(key) || !remoteGoals.Remove(key)) return;
             __state.Remote = true;
             remoteDepth++;
-            // "Less important" = databank material: the finder hears the narration, everyone else just gets the entry.
-            if (goalType == Story.GoalType.Encyclopedia && !Plugin.RemoteDatabankAudio.Value) { __state.Muted = true; muteDepth++; }
+            // Mute audio for all non-story-critical remote discoveries.
+            // Story goals (GoalType.Story) are critical narrative — audio plays for everyone.
+            // Encyclopedia, PDA, and other goal types are discovery material — notification only, no audio.
+            bool isStoryCritical = goalType == Story.GoalType.Story;
+            if (!isStoryCritical && !Plugin.RemoteDatabankAudio.Value) { __state.Muted = true; muteDepth++; }
         }
 
         private static void ExecuteFinished(ExecState __state)
@@ -135,30 +138,34 @@ namespace BZMultiplayer.Sync
                         else remoteGoals.Remove(key);
                         break;
                     case KindKnownTech:
-                        if (KnownTech.Add((TechType)techType, false, false)) Plugin.Log.LogInfo("Blueprint applied: " + (TechType)techType);
+                    {
+                        // Show the notification (second arg = true) but mute the audio.
+                        muteDepth++;
+                        try { if (KnownTech.Add((TechType)techType, true, false)) Plugin.Log.LogInfo("Blueprint applied: " + (TechType)techType); }
+                        finally { if (muteDepth > 0) muteDepth--; }
                         break;
+                    }
                     case KindScan:
                     {
                         var entry = PDAScanner.GetEntryData((TechType)techType);
                         if (entry != null)
                         {
-                            // Someone else scanned it: we get the blueprint and the databank entry, not the narration.
-                            bool mute = !Plugin.RemoteDatabankAudio.Value;
-                            if (mute) muteDepth++;
+                            // Someone else scanned it: we get the blueprint and the notification, not the narration.
+                            muteDepth++;
                             try {
                             AccessTools.Method(typeof(PDAScanner), "Unlock", new[] { typeof(PDAScanner.EntryData), typeof(bool), typeof(bool), typeof(bool) }).Invoke(null, new object[] { entry, true, true, false });
                             Plugin.Log.LogInfo("Scan unlock applied: " + (TechType)techType);
                             }
-                            finally { if (mute && muteDepth > 0) muteDepth--; }
+                            finally { if (muteDepth > 0) muteDepth--; }
                         }
                         break;
                     }
                     case KindEncyclopedia:
                     {
-                        bool mute = !Plugin.RemoteDatabankAudio.Value;
-                        if (mute) muteDepth++;
+                        // Discovery notification shows; audio is muted (not story-critical).
+                        muteDepth++;
                         try { PDAEncyclopedia.Add(key, false, false); }
-                        finally { if (mute && muteDepth > 0) muteDepth--; }
+                        finally { if (muteDepth > 0) muteDepth--; }
                         break;
                     }
                     case KindLog:

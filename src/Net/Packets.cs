@@ -33,6 +33,8 @@ namespace BZMultiplayer.Net
         HeldItem = 41,        // owner steam id, techType (what that player has in hand)
         Story = 40,           // kind, key, techType (story goal / blueprint / scan / encyclopedia / log)
         ResourceBroken = 37,  // outcrop id (breakable resource smashed; its drops follow as ItemDrop)
+        InventoryData = 42,   // steamId, worldKey, itemCount, [techType, quantity]... - player's personal inventory snapshot
+        InventoryRequest = 43, // host -> client: send me your current inventory
     }
 
     [Flags]
