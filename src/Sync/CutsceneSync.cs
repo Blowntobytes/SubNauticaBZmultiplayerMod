@@ -92,6 +92,23 @@ namespace BZMultiplayer.Sync
             return false;
         }
 
+        // ------------------------------------------------------------------ helpers: identification
+
+        /// <summary>
+        /// Build a scene-hierarchy path like "marge_intro(Clone)/PlayerCinematicController" for objects
+        /// that lack a UniqueIdentifier.  Prefixed with "path:" so the receive side knows to look up
+        /// by path rather than by UniqueIdentifier.
+        /// </summary>
+        private static string ScenePath(Component c)
+        {
+            if (c == null) return null;
+            var parts = new System.Collections.Generic.List<string>();
+            for (var t = c.transform; t != null; t = t.parent)
+                parts.Add(t.name);
+            parts.Reverse();
+            return "path:" + string.Join("/", parts.ToArray());
+        }
+
         // ------------------------------------------------------------------ local event
 
         private static void CinematicStartPostfix(PlayerCinematicController __instance)
@@ -107,6 +124,8 @@ namespace BZMultiplayer.Sync
             }
 
             string id = WorldSync.IdOf(__instance);
+            if (string.IsNullOrEmpty(id))
+                id = ScenePath(__instance);
             if (string.IsNullOrEmpty(id)) return;
 
             net.SendCutscene(id, animName ?? "");
@@ -126,7 +145,15 @@ namespace BZMultiplayer.Sync
             WorldSync.applyingRemote = true;
             try
             {
-                var go = WorldSync.Find(objectId);
+                GameObject go;
+                if (objectId.StartsWith("path:"))
+                {
+                    go = GameObject.Find(objectId.Substring(5));
+                }
+                else
+                {
+                    go = WorldSync.Find(objectId);
+                }
                 if (go == null)
                 {
                     Plugin.Log.LogWarning("CutsceneSync: object not found: " + objectId);

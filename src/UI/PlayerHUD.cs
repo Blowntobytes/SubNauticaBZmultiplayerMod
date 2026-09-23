@@ -160,18 +160,18 @@ namespace BZMultiplayer.UI
             labelStyleGUI = new GUIStyle(GUI.skin.label);
             labelStyleGUI.fontSize = 13;
             labelStyleGUI.fontStyle = FontStyle.Bold;
-            labelStyleGUI.normal.textColor = new Color(0.85f, 0.95f, 1f, 0.9f);
+            labelStyleGUI.normal.textColor = new Color(0.55f, 1f, 0.98f, 0.95f);
             labelStyleGUI.alignment = TextAnchor.MiddleCenter;
 
             distStyleGUI = new GUIStyle(GUI.skin.label);
             distStyleGUI.fontSize = 11;
-            distStyleGUI.normal.textColor = new Color(0.7f, 0.85f, 1f, 0.75f);
+            distStyleGUI.normal.textColor = new Color(0.35f, 0.82f, 0.80f, 0.80f);
             distStyleGUI.alignment = TextAnchor.MiddleCenter;
 
             markerTex = new Texture2D(12, 12, TextureFormat.ARGB32, false);
             markerTex.filterMode = FilterMode.Bilinear;
             var pixels = new Color[12 * 12];
-            Color fill = new Color(0.3f, 0.7f, 1f, 0.9f);
+            Color fill = new Color(0f, 0.87f, 0.87f, 0.95f);
             Color edge = new Color(1f, 1f, 1f, 0.6f);
             Vector2 center = new Vector2(5.5f, 5.5f);
             for (int y = 0; y < 12; y++)
@@ -247,47 +247,52 @@ namespace BZMultiplayer.UI
             var scaler = m.root.AddComponent<CanvasScaler>();
             scaler.dynamicPixelsPerUnit = 10f;
 
-            // Diamond image
+            // Game HUD colours (cyan/teal, matching Subnautica beacon pings)
+            Color markerColor = new Color(0f, 0.87f, 0.87f, 0.95f);   // bright cyan diamond
+            Color nameColor   = new Color(0.55f, 1f, 0.98f, 0.95f);   // cyan-white name
+            Color distColor   = new Color(0.35f, 0.82f, 0.80f, 0.80f); // slightly muted cyan distance
+
+            // Diamond image  (50% larger: 20 → 30)
             var diamondGO = new GameObject("Diamond");
             diamondGO.transform.SetParent(m.root.transform, false);
             m.diamond = diamondGO.AddComponent<Image>();
-            m.diamond.color = new Color(0.3f, 0.7f, 1f, 0.9f);
+            m.diamond.color = markerColor;
             m.diamond.sprite = CreateDiamondSprite();
             var drt = m.diamond.rectTransform;
-            drt.sizeDelta = new Vector2(20, 20);
+            drt.sizeDelta = new Vector2(30, 30);
             drt.anchoredPosition = Vector2.zero;
             drt.localRotation = Quaternion.Euler(0, 0, 45); // rotate square into diamond
 
-            // Name label above
+            // Name label above  (50% larger: 28 → 42, offset 28 → 42)
             var nameGO = new GameObject("Name");
             nameGO.transform.SetParent(m.root.transform, false);
             m.nameLabel = nameGO.AddComponent<TextMeshProUGUI>();
-            m.nameLabel.fontSize = 28;
+            m.nameLabel.fontSize = 42;
             m.nameLabel.fontStyle = FontStyles.Bold;
-            m.nameLabel.color = new Color(0.85f, 0.95f, 1f, 0.9f);
+            m.nameLabel.color = nameColor;
             m.nameLabel.alignment = TextAlignmentOptions.Center;
             m.nameLabel.enableWordWrapping = false;
             m.nameLabel.overflowMode = TextOverflowModes.Overflow;
             var nrt = m.nameLabel.rectTransform;
-            nrt.sizeDelta = new Vector2(300, 40);
-            nrt.anchoredPosition = new Vector2(0, 28);
+            nrt.sizeDelta = new Vector2(450, 60);
+            nrt.anchoredPosition = new Vector2(0, 42);
 
-            // Distance label below
+            // Distance label below  (50% larger: 22 → 33, offset -24 → -36)
             var distGO = new GameObject("Dist");
             distGO.transform.SetParent(m.root.transform, false);
             m.distLabel = distGO.AddComponent<TextMeshProUGUI>();
-            m.distLabel.fontSize = 22;
-            m.distLabel.color = new Color(0.7f, 0.85f, 1f, 0.75f);
+            m.distLabel.fontSize = 33;
+            m.distLabel.color = distColor;
             m.distLabel.alignment = TextAlignmentOptions.Center;
             m.distLabel.enableWordWrapping = false;
             m.distLabel.overflowMode = TextOverflowModes.Overflow;
             var drt2 = m.distLabel.rectTransform;
-            drt2.sizeDelta = new Vector2(200, 32);
-            drt2.anchoredPosition = new Vector2(0, -24);
+            drt2.sizeDelta = new Vector2(300, 48);
+            drt2.anchoredPosition = new Vector2(0, -36);
 
-            // Canvas rect
+            // Canvas rect (50% larger: 300x100 → 450x150)
             var crt = m.canvas.GetComponent<RectTransform>();
-            crt.sizeDelta = new Vector2(300, 100);
+            crt.sizeDelta = new Vector2(450, 150);
 
             return m;
         }

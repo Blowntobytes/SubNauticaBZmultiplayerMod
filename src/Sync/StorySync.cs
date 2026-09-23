@@ -151,12 +151,51 @@ namespace BZMultiplayer.Sync
                         var entry = PDAScanner.GetEntryData((TechType)techType);
                         if (entry != null)
                         {
-                            // Someone else scanned it: we get the blueprint and the databank entry, not the narration.
                             bool mute = !Plugin.RemoteDatabankAudio.Value;
                             if (mute) muteDepth++;
                             try {
-                            AccessTools.Method(typeof(PDAScanner), "Unlock", new[] { typeof(PDAScanner.EntryData), typeof(bool), typeof(bool), typeof(bool) }).Invoke(null, new object[] { entry, true, true, true });
-                            Plugin.Log.LogInfo("Scan unlock applied: " + (TechType)techType);
+                            // Track partial fragment progress rather than fully unlocking on the first scan.
+                            // PDAScanner.Unlock fires on every fragment, not just the last, so we must count.
+                            if (entry.totalFragments <= 1)
+                            {
+                                // Single-scan item: unlock immediately
+                                AccessTools.Method(typeof(PDAScanner), "Unlock", new[] { typeof(PDAScanner.EntryData), typeof(bool), typeof(bool), typeof(bool) }).Invoke(null, new object[] { entry, true, true, true });
+                                Plugin.Log.LogInfo("Scan unlock applied (single): " + (TechType)techType);
+                            }
+                            else
+                            {
+                                // Multi-fragment item: increment partial progress
+                                var partialField = AccessTools.Field(typeof(PDAScanner), "partial");
+                                var partialList = partialField != null ? partialField.GetValue(null) as System.Collections.Generic.List<PDAScanner.Entry> : null;
+                                PDAScanner.Entry scanEntry = null;
+                                if (partialList != null)
+                                {
+                                    for (int pi = 0; pi < partialList.Count; pi++)
+                                    {
+                                        if (partialList[pi].techType == (TechType)techType) { scanEntry = partialList[pi]; break; }
+                                    }
+                                    if (scanEntry == null)
+                                    {
+                                        scanEntry = new PDAScanner.Entry();
+                                        scanEntry.techType = (TechType)techType;
+                                        scanEntry.unlocked = 0;
+                                        partialList.Add(scanEntry);
+                                    }
+                                    scanEntry.unlocked++;
+                                    Plugin.Log.LogInfo("Scan fragment " + scanEntry.unlocked + "/" + entry.totalFragments + " applied: " + (TechType)techType);
+                                    if (scanEntry.unlocked >= entry.totalFragments)
+                                    {
+                                        AccessTools.Method(typeof(PDAScanner), "Unlock", new[] { typeof(PDAScanner.EntryData), typeof(bool), typeof(bool), typeof(bool) }).Invoke(null, new object[] { entry, true, true, true });
+                                        Plugin.Log.LogInfo("Scan fully unlocked: " + (TechType)techType);
+                                    }
+                                }
+                                else
+                                {
+                                    // Fallback if reflection fails
+                                    AccessTools.Method(typeof(PDAScanner), "Unlock", new[] { typeof(PDAScanner.EntryData), typeof(bool), typeof(bool), typeof(bool) }).Invoke(null, new object[] { entry, true, true, true });
+                                    Plugin.Log.LogInfo("Scan unlock applied (fallback): " + (TechType)techType);
+                                }
+                            }
                             }
                             finally { if (mute && muteDepth > 0) muteDepth--; }
                         }
