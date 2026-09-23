@@ -25,6 +25,7 @@ namespace BZMultiplayer.Sync
         private static readonly string[] BlockedPrefixes = new[]
         {
             "drop_pod",         // drop pod hatch
+            "droppod",          // drop pod (no underscore variant: droppod_enter_cin etc.)
             "bulkhead",         // base bulkhead doors
             "door",             // generic doors
             "hatch",            // hatches

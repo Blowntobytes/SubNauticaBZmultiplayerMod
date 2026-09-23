@@ -18,7 +18,7 @@ namespace BZMultiplayer
     {
         public const string PluginGuid = "com.blowntobytes.bzmultiplayer";
         public const string PluginName = "BZMultiplayer";
-        public const string PluginVersion = "0.11.1";
+        public const string PluginVersion = "0.11.2";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
@@ -158,6 +158,7 @@ namespace BZMultiplayer
             UI.HeldItemTuner.Update();
             StuckProbe.Update();
             TimeSync.Update();
+            UI.PlayerHUD.UpdateHUD();
             UpdateDiscord();
         }
 
