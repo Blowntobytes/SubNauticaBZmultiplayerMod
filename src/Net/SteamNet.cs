@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using Steamworks;
 using UnityEngine;
 using BZMultiplayer.Sync;
+using BZMultiplayer.VR;
 
 namespace BZMultiplayer.Net
 {
@@ -119,6 +120,13 @@ namespace BZMultiplayer.Net
             bool overlay = SteamUtils.IsOverlayEnabled();
             Plugin.Log.LogInfo("Invite dialog requested. Steam overlay enabled: " + overlay + ". Lobby id " + lobby.m_SteamID + " copied to clipboard.");
             GUIUtility.systemCopyBuffer = lobby.m_SteamID.ToString();
+            if (VRBridge.IsVRActive)
+            {
+                // In the headset the Steam invite dialog leaves a SteamVR panel stuck in view, so skip it in VR.
+                Plugin.Log.LogInfo("VR active: skipping Steam overlay invite dialog to avoid persistent VR splash screen. Friends join with " + Plugin.JoinFriendKey.Value + " or paste the lobby id from clipboard.");
+                try { ErrorMessage.AddMessage("Lobby id copied to clipboard. Friends join with " + Plugin.JoinFriendKey.Value + "."); } catch { }
+                return;
+            }
             SteamFriends.ActivateGameOverlayInviteDialog(lobby);
             if (!overlay)
                 Plugin.Log.LogWarning("Steam overlay is disabled for this game, so the invite dialog cannot appear. Friends can still join with " + Plugin.JoinFriendKey.Value + " (auto-find, or lobby id from clipboard).");
@@ -194,6 +202,7 @@ namespace BZMultiplayer.Net
             float deadline = Time.unscaledTime + 15f;
             while (Time.unscaledTime < deadline && (Time.timeScale < 0.99f || UWE.FreezeTime.HasFreezers())) yield return null;
             yield return new WaitForSecondsRealtime(1.5f);
+            VRPanelFix.Schedule();
             Join(lobbyId);
         }
 
