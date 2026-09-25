@@ -18,7 +18,7 @@ namespace BZMultiplayer
     {
         public const string PluginGuid = "com.blowntobytes.bzmultiplayer";
         public const string PluginName = "BZMultiplayer";
-        public const string PluginVersion = "0.11.11";
+        public const string PluginVersion = "0.11.12";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
@@ -49,7 +49,6 @@ namespace BZMultiplayer
         public static ConfigEntry<KeyCode> TuneModeKey;
         public static ConfigEntry<KeyCode> TuneSaveKey;
         public static ConfigEntry<KeyCode> TuneResetKey;
-        public static ConfigEntry<bool> VRPanelFixEnabled;
 
         public SteamNet Net { get; private set; }
         public PlayerRegistry Players { get; private set; }
@@ -92,7 +91,6 @@ namespace BZMultiplayer
             VerboseLog = Config.Bind("Debug", "Verbose", false, "Log every packet type received (spammy).");
             DiscordEnabled = Config.Bind("Discord", "Enabled", true, "Show the session in Discord (rich presence) with a Join button for friends. Needs the Discord desktop app running.");
             DiscordAppId = Config.Bind("Discord", "ApplicationId", "1550629787389792326", "Discord application id used for rich presence. Everyone in a session must use the same id. Create one at discord.com/developers/applications (New Application, name it e.g. 'Subnautica: Below Zero') and paste its Application ID here.");
-            VRPanelFixEnabled = Config.Bind("VR", "PanelFix", true, "After joining through a Steam invite in VR, try to clear the SteamVR panel that can stay stuck in the headset. Only makes safe read-only or input-only OpenVR calls. Turn off if it causes trouble.");
 
             // The game's "Cleaner" scene (quit to main menu) destroys every root object that is not marked preserved,
             // including BepInEx's plugin object. Keep us (and every other plugin on this object) alive across it.

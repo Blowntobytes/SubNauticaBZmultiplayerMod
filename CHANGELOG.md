@@ -2,6 +2,15 @@
 
 Only versions from 0.9.25 on are listed in detail; earlier builds were tracked in chat sessions.
 
+## 0.11.12
+- Found the real cause of the stuck VR panel: if SteamVR is already running when Steam starts the game (e.g. accepting
+  an invite with the game closed), Steam launches it in flat-screen mode and SteamVR shows it on its theater screen,
+  whose splash panel stays in front of the VR view. It is a SteamVR setting, not a mod bug.
+- INSTALL.txt and README: bold warning for VR players (don't have SteamVR running before launching; turn off
+  "Present Non-VR Applications on Theater Screen Upon Launch" in SteamVR side panel -> Dashboard).
+- Removed the VR panel fix code and its VR / PanelFix config entry (it could not affect SteamVR's theater screen).
+- README: removed the outdated "source status" note; `src/` builds the released DLL.
+
 ## 0.11.11
 - VR panel fix rebuilt with safe OpenVR calls only. 0.11.10 crashed because it picked up the game's older OpenVR
   binding (Assembly-CSharp-firstpass, IVRApplications_006) and asked native code to write into managed strings.

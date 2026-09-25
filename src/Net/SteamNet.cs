@@ -202,7 +202,6 @@ namespace BZMultiplayer.Net
             float deadline = Time.unscaledTime + 15f;
             while (Time.unscaledTime < deadline && (Time.timeScale < 0.99f || UWE.FreezeTime.HasFreezers())) yield return null;
             yield return new WaitForSecondsRealtime(1.5f);
-            VRPanelFix.Schedule();
             Join(lobbyId);
         }
 

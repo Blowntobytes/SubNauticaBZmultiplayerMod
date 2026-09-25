@@ -1,5 +1,23 @@
-BZMultiplayer 0.9.26 - Subnautica: Below Zero multiplayer (Steam only)
+BZMultiplayer 0.11.12 - Subnautica: Below Zero multiplayer (Steam only)
 All-in-one: includes BepInEx 5.4.23 (Tobey's BepInEx Pack for Below Zero) + the multiplayer mod.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!  VR PLAYERS - READ THIS FIRST
+!!
+!!  STEAMVR SHOULD *NOT* BE RUNNING BEFORE YOU LAUNCH THE GAME.
+!!  Start Below Zero and let it open SteamVR by itself.
+!!
+!!  If SteamVR is already running when Steam starts the game (for example when you accept a Steam
+!!  invite while the game is closed), SteamVR puts the game on its "theater screen" and a big splash
+!!  panel stays stuck in front of you for the whole session.
+!!
+!!  RECOMMENDED: in SteamVR open the SIDE PANEL -> DASHBOARD and turn OFF
+!!      "Present Non-VR Applications on Theater Screen Upon Launch"
+!!  (This option is only found inside SteamVR, not in Steam's own settings.)
+!!
+!!  Already stuck with the panel? Quit the game, close SteamVR and launch the game again. Or start the
+!!  game first and then join from inside it (F4 or the Multiplayer menu).
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 INSTALL (2 minutes)
 1. Find your game folder: Steam -> Library -> right-click "Subnautica: Below Zero" -> Manage ->

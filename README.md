@@ -11,9 +11,20 @@ creature or fragment) is heard only by whoever made the discovery - the others s
 notification. Held items (scanner, knife, builder, seaglide...) show in each player's hand. Vehicles and creatures are not synced yet.
 See `ARCHITECTURE.md` for the plan.
 
-> **Source status:** the DLL in the latest release is **0.9.26**. The code in `src/` is an older snapshot (**0.8.1**)
-> because the 0.9.x source was lost between work sessions. It will be replaced with a rebuilt 0.9.x source.
-> Until then, use the release zip to play, not a build from `src/`.
+## VR players: read this first
+
+> **SteamVR should NOT be running before you launch the game.** Start Below Zero and let it open SteamVR itself.
+>
+> If SteamVR is already running when Steam starts the game (for example when you accept a Steam invite while the
+> game is closed), SteamVR treats Below Zero as a flat-screen game and puts it on its **theater screen**. A large
+> splash panel then stays stuck in front of you for the whole session.
+>
+> **Recommended:** in SteamVR, open the **side panel -> Dashboard** and turn **off**
+> **"Present Non-VR Applications on Theater Screen Upon Launch"**. This option is only found inside SteamVR, not in
+> Steam's own settings.
+>
+> Already stuck with the panel? Quit the game, close SteamVR, and launch the game again. Or start the game first and
+> then join from inside it (F4 or the Multiplayer menu): Steam does not relaunch a game that is already running.
 
 ## Download
 
@@ -44,7 +55,7 @@ auto-saves, streams the slot (a few MB), and the friend's game loads it. Saves o
 `SNAppData\SavedGames\slot9990` inside the game folder (Steam PC). The Steam overlay invite also works if the overlay is
 enabled for the game and showing on the desktop window (in VR it often isn't), and "Join Game" from the
 Steam friends list works too. If the friend's game is closed, Steam launches it with the lobby id and the mod
-joins automatically once in-game.
+joins automatically once in-game (VR players: see the SteamVR warning above; start the game first if SteamVR is already running).
 
 ### Multiplayer menu
 
