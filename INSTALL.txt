@@ -1,0 +1,54 @@
+BZMultiplayer 0.0.1 - Subnautica: Below Zero multiplayer (Steam only)
+All-in-one: includes BepInEx 5.4.23 (Tobey's BepInEx Pack for Below Zero) + the multiplayer mod.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!  VR PLAYERS - READ THIS FIRST
+!!
+!!  STEAMVR SHOULD *NOT* BE RUNNING BEFORE YOU LAUNCH THE GAME.
+!!  Start Below Zero and let it open SteamVR by itself.
+!!
+!!  If SteamVR is already running when Steam starts the game (for example when you accept a Steam
+!!  invite while the game is closed), SteamVR puts the game on its "theater screen" and a big splash
+!!  panel stays stuck in front of you for the whole session.
+!!
+!!  RECOMMENDED: in SteamVR open the SIDE PANEL -> DASHBOARD and turn OFF
+!!      "Present Non-VR Applications on Theater Screen Upon Launch"
+!!  (This option is only found inside SteamVR, not in Steam's own settings.)
+!!
+!!  Already stuck with the panel? Quit the game, close SteamVR and launch the game again. Or start the
+!!  game first and then join from inside it (F4 or the Multiplayer menu).
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+INSTALL (2 minutes)
+1. Find your game folder: Steam -> Library -> right-click "Subnautica: Below Zero" -> Manage ->
+   Browse local files. You should see SubnauticaZero.exe there.
+2. Extract EVERYTHING in this zip straight into that folder. If Windows asks to merge/replace a
+   BepInEx folder, say yes. Afterwards the game folder must contain BOTH of these:
+       <game folder>\winhttp.dll
+       <game folder>\BepInEx\plugins\BZMultiplayer\BZMultiplayer.dll
+3. Launch the game once from Steam and quit again (BepInEx creates its config files on first run).
+4. Optional, VR only: SubmersedVR_BZ from github.com/jbusfield/SubmersedVR_BZ. Not needed for flat-screen.
+
+No save copying needed: the host's world is sent to you automatically when you join.
+
+PLAY
+- Host loads their save, is in-game, and presses F5.
+- You sit at the MAIN MENU and press F4. The mod finds your friend hosting, joins, downloads their
+  world (takes a few seconds) and loads it. It goes into save slot "slot9990" on your machine and is
+  overwritten on every join, so don't use that slot for your own game.
+  (If it can't find a friend hosting, F4 joins a lobby id pasted in your clipboard instead.)
+- End leaves the session. Home asks the host to resend the world.
+A small status box appears top-left of the desktop game window (not visible in a headset).
+
+You must both be on Steam and on each other's friends list, on the same mod version.
+Log file if something goes wrong: <game folder>\BepInEx\LogOutput.log
+
+Credits: BepInEx (github.com/BepInEx/BepInEx, LGPL-2.1), Tobey's BepInEx Pack (github.com/toebeann).
+
+KNOWN ISSUES (0.0.1)
+- VR: jumping while pushing the left stick sideways can equip random hotbar items.
+- Creatures (including leviathans) are not shared yet.
+- Some base-building pieces may not appear for the other player.
+- Cut scenes don't always synchronize
+- Gravity is still active in a long sea truck. When the driver turns it vertical other players fall.
+- Large worlds take much longer to download to all of the clients
